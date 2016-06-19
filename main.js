@@ -19,16 +19,6 @@ let filter = PIXI.filters || PIXI.Filter;
 
 let game = {};
 
-var selectSound = new Howl({
-  src: ['sounds/select2.wav']
-});
-
-
-var attackSound = new Howl({
-  src: ['sounds/attack.wav']
-});
-
-
 
 function init() {
 
@@ -83,10 +73,12 @@ function init() {
 
         //Create owners
         let owners = [];
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 3; i++) {
             let owner = new Owner(i+'', getNextColor());
             owners.push(owner);
         }
+
+        const USER = owners[0];
 
 
         let NUM_CELLS = 10;
@@ -106,6 +98,7 @@ function init() {
             for (let cell of cells) {
                 let x = _.random(0, width), y = _.random(0, height);
                 cell.body = Bodies.circle(x, y, cell.maxValue);
+                cell.body.cell = cell;
                 World.add(engine.world, [cell.body]);
             }
         }
@@ -155,15 +148,18 @@ function init() {
                 // container.addChild(displacementTexture);
 
                 cell.sprite.click = (mouseData) => {
-                    cell.selected = !cell.selected;
-                    if (getSelectedCells().length > 1) {
+
+                    if (cell.owner == USER) {
+                        cell.selected = !cell.selected;
+                    }
+                    if (getSelectedCells().length >= 1 && cell.owner != USER) {
                         attack(getSelectedCells(), cell);
                         for (let cell of cells) {
                             cell.selected = false;
                         }
-                        attackSound.play()
+                        play("attack")
                     }else if (cell.selected){
-                        selectSound.play();
+                        play("hit")
                     }
                 }
 
@@ -174,8 +170,12 @@ function init() {
         function attack(from, to) {
             for (let cell of from) {
                 let attackValue = cell.value/2
-                createAttackCell(cell, to, attackValue)
                 cell.value -= attackValue;
+                while(attackValue){
+                    let val = attackValue >=3 ? 3:attackValue;
+                    attackValue-=val;
+                    createAttackCell(cell, to, val)
+                }
                 updateText([cell])
             }
         }
@@ -191,12 +191,13 @@ function init() {
             moveTowards(attackCellPos, targetCell.body.position, attackCellRadius + cell.maxValue);
 
             attackCell.body = Bodies.circle(attackCellPos.x, attackCellPos.y, attackCellRadius);
+            attackCell.body.cell = attackCell;
             World.add(engine.world, [attackCell.body]);
 
-            setInterval(function(){
+            attackCell.interval = setInterval(function(){
                 let body = attackCell.body;
                 let forceMagnitude = 0.001 * body.mass; /// 0.001 cell.speed
-                // Query.point(getCellBodies(), point)
+                // Query.point(_.intersection(getCellBodies(), [targetCell.body]), point)
 
                 Body.applyForce(body, body.position, {
                     x: forceMagnitude * getXYRatio(body.position, targetCell.body.position).xRatio,
@@ -212,6 +213,37 @@ function init() {
             stage.addChild(attackCell.sprite);
 
         }
+
+        function removeAttackCell(attackCell){
+            stage.removeChild(attackCell.sprite);
+            clearInterval(attackCell.interval);
+            World.remove(engine.world, [attackCell.body])
+
+        }
+
+        // an example of using collisionStart event on an engine
+        Matter.Events.on(engine, 'collisionStart', function(event) {
+            let pairs = event.pairs;
+
+            // change object colours to show those starting a collision
+            for (let i = 0; i < pairs.length; i++) {
+                let pair = pairs[i];
+                let cells = [pair.bodyA.cell, pair.bodyB.cell];
+                let aCell = _.find(cells, (o) => { return o instanceof AttackCell });
+                let cell = _.find(cells, (o) => { return o instanceof Cell });
+                if(aCell && cell && aCell.target == cell){
+                    cell.value -= (aCell.value * (cell.owner == aCell.owner)?-1:1);
+                    if (cell.value < 0) {
+                        cell.owner = aCell.owner;
+                        cell.value *= -1;
+                    }
+                    updateText([cell])
+                    removeAttackCell(aCell)
+                    play("drop");
+                };
+
+            }
+        })
 
         // let displacementTexture = PIXI.Sprite.fromImage("2yYayZk.png");
         // let displacementFilter = new filter.DisplacementFilter(displacementTexture);
@@ -237,9 +269,9 @@ function init() {
                 }
 
                 if (cell.light1)
-                cell.light1.rotation += 0.02;
+                    cell.light1.rotation += 0.02;
                 if (cell.light2)
-                cell.light2.rotation += 0.01;
+                    cell.light2.rotation += 0.01;
             }
 
             for (let cell of attackCells) {

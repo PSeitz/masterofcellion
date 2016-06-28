@@ -33,36 +33,49 @@ function getXYRatio(startPos, endPos){
 }
 
 function moveTowards(startPos, endPos, movementAmount){
-    let deltaX = (endPos.x - startPos.x)
-    let deltaY = (endPos.y - startPos.y)
+    // let deltaX = (endPos.x - startPos.x)
+    // let deltaY = (endPos.y - startPos.y)
+    //
+    // let distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+    // let distanceRatio = movementAmount / distance;
+    // startPos.x += deltaX * distanceRatio;
+    // startPos.y += deltaY * distanceRatio;
 
-    let distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
-    let distanceRatio = movementAmount / distance;
-    startPos.x += deltaX * distanceRatio;
-    startPos.y += deltaY * distanceRatio;
+    let x = startPos.x - endPos.x;
+    let y = startPos.y - endPos.y;
+    var radians = Math.atan2(y,x);
+    // startPos.x = startPos.x - movementAmount * Math.cos(radians);
+    // startPos.y = startPos.y - movementAmount * Math.sin(radians);
+    return {
+        x : startPos.x - movementAmount * Math.cos(radians),
+        y : startPos.y - movementAmount * Math.sin(radians)
+    }
 
 }
 
-function componentToHex(c) {
-    var hex = c.toString(16);
-    return hex.length == 1 ? "0" + hex : hex;
+// 0 180   -180 -0
+function turnRight(degree, amount){
+    degree += amount;
+    if (degree > 180) {
+        degree = -180 + degree % 180;
+    }
+    return degree;
 }
 
-function rgbToHex(r, g, b) {
-    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+// 0 180   -180 -0
+function turnLeft(degree, amount){
+    degree -= amount;
+    if (degree < -180) {
+        degree = 180 + degree % 180;
+    }
+    return degree;
 }
 
-function hexToRgb(hex) {
-    // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
-    var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-    hex = hex.replace(shorthandRegex, function(m, r, g, b) {
-        return r + r + g + g + b + b;
-    });
+function radiansToDegrees(radians){
+    return radians * (180/Math.PI)
+}
 
-    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-    } : null;
+function degreesToRadians(degrees){
+    return degrees / 180 * Math.PI
+    // return degrees * Math.PI/180
 }

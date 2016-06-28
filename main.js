@@ -4,16 +4,29 @@ window.onload = init;
 
 let colors = [0xec407a,0xab47bc,0x26c6da,0xffca28,0x29b6f6,0xe84e40,0x5c6bc0,0xff7043,0x9ccc65];
 
+let cells = [];
+let attackCells = [];
+let owners = [];
 
-let index = 0;
 function getNextColor(){
-    if (index == colors.length) {
-        index=0;
+    return getNext(colors, 'colors')
+}
+function getNextOwner(){
+    return getNext(owners, 'owners')
+}
+
+let cursors = {};
+function getNext(collection, name){
+    if (!cursors[name]) cursors[name] = 0;
+
+    if (cursors[name] == collection.length) {
+        cursors[name]=0;
     }
-    let col = colors[index];
-    index++;
+    let col = collection[cursors[name]];
+    cursors[name]++;
     return col;
 }
+
 
 let filter = PIXI.filters || PIXI.Filter;
 
@@ -72,7 +85,7 @@ function init() {
         Engine.run(engine);
 
         //Create owners
-        let owners = [];
+
         for (let i = 0; i < 3; i++) {
             let owner = new Owner(i+'', getNextColor());
             owners.push(owner);
@@ -80,18 +93,15 @@ function init() {
 
         const USER = owners[0];
 
-
         let NUM_CELLS = 10;
         //Create Cells
-        let cells = [];
+
         for (let i = 0; i < NUM_CELLS; i++) {
             let maxValue = _.random(radiusMin, radiusMax);
             let value = _.random(0, maxValue);
-            let cell = new Cell(value, maxValue, _.sample(owners));
+            let cell = new Cell(value, maxValue, getNextOwner());
             cells.push(cell);
         }
-
-        let attackCells = [];
 
         placeRandomCells(cells);
         function placeRandomCells(cells) {
@@ -149,6 +159,9 @@ function init() {
 
                 cell.sprite.click = (mouseData) => {
 
+                    let u = new SpriteUtilities(PIXI);
+                    u.shake(cell.sprite, 2.55, true);
+
                     if (cell.owner == USER) {
                         cell.selected = !cell.selected;
                     }
@@ -159,7 +172,7 @@ function init() {
                         }
                         play("attack")
                     }else if (cell.selected){
-                        play("hit")
+                        play("select")
                     }
                 }
 
@@ -182,28 +195,35 @@ function init() {
 
         function createAttackCell(cell, targetCell, value) {
 
-            let attackCell = new AttackCell(cell.owner, targetCell, value);
+            let attackCell = new AttackCell(cell.owner, targetCell, value, 0.006, 600);
             attackCells.push(attackCell);
 
             let attackCellPos = {x: cell.body.position.x, y:cell.body.position.y};
             let attackCellRadius = attackCell.value;
 
-            moveTowards(attackCellPos, targetCell.body.position, attackCellRadius + cell.maxValue);
+            attackCellPos = moveTowards(attackCellPos, targetCell.body.position, attackCellRadius + cell.maxValue);
 
             attackCell.body = Bodies.circle(attackCellPos.x, attackCellPos.y, attackCellRadius);
             attackCell.body.cell = attackCell;
+            attackCell.body.airFriction = 0.9
             World.add(engine.world, [attackCell.body]);
 
-            attackCell.interval = setInterval(function(){
+            function moveAttackCell(){
                 let body = attackCell.body;
-                let forceMagnitude = 0.001 * body.mass; /// 0.001 cell.speed
-                // Query.point(_.intersection(getCellBodies(), [targetCell.body]), point)
+                let forceMagnitude = attackCell.speed * body.mass; /// 0.001 cell.speed
 
+                let projectedPoint = moveTowards(attackCell.body.position, targetCell.body.position, 25);
+                let bodies = Query.point(_.difference(getCellBodies(), [targetCell.body]), projectedPoint)
+                if (bodies.length > 0 ) {
+                    // debugger;
+                }
                 Body.applyForce(body, body.position, {
                     x: forceMagnitude * getXYRatio(body.position, targetCell.body.position).xRatio,
                     y: forceMagnitude * getXYRatio(body.position, targetCell.body.position).yRatio,
                 });
-            }, 1000) //1000 cell.agitlity
+            }
+            moveAttackCell()
+            attackCell.interval = setInterval(moveAttackCell, attackCell.agility) //1000 cell.agitlity
 
             let graphics = new PIXI.Graphics();
             drawCell(graphics, cell.owner.color, cell.body.position, attackCell.value);
@@ -232,7 +252,7 @@ function init() {
                 let aCell = _.find(cells, (o) => { return o instanceof AttackCell });
                 let cell = _.find(cells, (o) => { return o instanceof Cell });
                 if(aCell && cell && aCell.target == cell){
-                    cell.value -= (aCell.value * (cell.owner == aCell.owner)?-1:1);
+                    cell.value -= (aCell.value * ((cell.owner == aCell.owner)?-1:1));
                     if (cell.value < 0) {
                         cell.owner = aCell.owner;
                         cell.value *= -1;
@@ -245,12 +265,12 @@ function init() {
             }
         })
 
-        // let displacementTexture = PIXI.Sprite.fromImage("2yYayZk.png");
-        // let displacementFilter = new filter.DisplacementFilter(displacementTexture);
-        // displacementFilter.scale.x = 5;
-        // displacementFilter.scale.y = 5;
-        // stage.addChild(displacementTexture);
-        // stage.filters = [displacementFilter]
+        let displacementTexture = PIXI.Sprite.fromImage("2yYayZk.png");
+        let displacementFilter = new filter.DisplacementFilter(displacementTexture);
+        displacementFilter.scale.x = 5;
+        displacementFilter.scale.y = 5;
+        stage.addChild(displacementTexture);
+        stage.filters = [displacementFilter]
 
         // start animating
         animate();
@@ -279,8 +299,8 @@ function init() {
             }
 
             TWEEN.update(time);
-            // displacementTexture.x += 3;
-            // displacementTexture.y += 3;
+            displacementTexture.x += 1;
+            displacementTexture.y += 1;
 
             renderer.render(stage)
         }
@@ -348,10 +368,11 @@ function init() {
     }
 
     class AttackCell {
-        constructor(owner, target, value, speed) {
+        constructor(owner, target, value, speed, agility) {
             this.owner = owner;
             this.target = target;
             this.value = value;
             this.speed = speed;
+            this.agility = agility;
         }
     }

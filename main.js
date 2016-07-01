@@ -48,7 +48,7 @@ function init() {
     let cellValueMax = 80;
     let canvas = document.getElementById("stage");
 
-    let scale = .7;
+    let scale = 1.2;
     height*=scale,width*=scale,radiusMax*=scale,radiusMin*=scale
 
     canvas.width=width;
@@ -195,7 +195,7 @@ function init() {
 
         function createAttackCell(cell, targetCell, value) {
 
-            let attackCell = new AttackCell(cell.owner, targetCell, value, 0.006, 600);
+            let attackCell = new AttackCell(cell.owner, targetCell, value, 0.005, 800);
             attackCells.push(attackCell);
 
             let attackCellPos = {x: cell.body.position.x, y:cell.body.position.y};
@@ -205,22 +205,36 @@ function init() {
 
             attackCell.body = Bodies.circle(attackCellPos.x, attackCellPos.y, attackCellRadius);
             attackCell.body.cell = attackCell;
-            attackCell.body.airFriction = 0.9
+            attackCell.body.frictionAir = .02
+            attackCell.body.friction = 1
             World.add(engine.world, [attackCell.body]);
 
             function moveAttackCell(){
                 let body = attackCell.body;
                 let forceMagnitude = attackCell.speed * body.mass; /// 0.001 cell.speed
+                let startPos = attackCell.body.position, endPos = targetCell.body.position;
 
-                let projectedPoint = moveTowards(attackCell.body.position, targetCell.body.position, 25);
-                let bodies = Query.point(_.difference(getCellBodies(), [targetCell.body]), projectedPoint)
+                let initialDegree = radiansToDegrees(getDegree(startPos, endPos));
+                let lookahead = 50;
+                let projectedCollisionPoint = moveTowardsAngle(startPos, degreesToRadians(initialDegree), lookahead);
+                let bodies = Query.point(_.difference(getCellBodies(), [targetCell.body]), projectedCollisionPoint)
+                let xy = moveTowardsAngle(startPos, degreesToRadians(initialDegree), forceMagnitude);
                 if (bodies.length > 0 ) {
                     // debugger;
+                    let initialDegree = radiansToDegrees(getDegree(startPos, endPos));
+                    let res1 = turnUntilNoCollision(startPos, _.difference(getCellBodies(), [targetCell.body]), true, initialDegree, lookahead)
+                    let res2 = turnUntilNoCollision(startPos, _.difference(getCellBodies(), [targetCell.body]), false, initialDegree, lookahead)
+                    let betterRes = _.minBy([res1, res2], 'steps');
+                    if (betterRes) {
+                        xy = moveTowardsAngle(startPos, degreesToRadians(betterRes.degree), forceMagnitude);
+                    }
+
                 }
-                Body.applyForce(body, body.position, {
-                    x: forceMagnitude * getXYRatio(body.position, targetCell.body.position).xRatio,
-                    y: forceMagnitude * getXYRatio(body.position, targetCell.body.position).yRatio,
-                });
+
+                xy.x = xy.x - startPos.x;
+                xy.y = xy.y - startPos.y;
+                Body.applyForce(body, body.position, xy);
+
             }
             moveAttackCell()
             attackCell.interval = setInterval(moveAttackCell, attackCell.agility) //1000 cell.agitlity

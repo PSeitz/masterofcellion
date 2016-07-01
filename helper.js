@@ -41,9 +41,7 @@ function moveTowards(startPos, endPos, movementAmount){
     // startPos.x += deltaX * distanceRatio;
     // startPos.y += deltaY * distanceRatio;
 
-    let x = startPos.x - endPos.x;
-    let y = startPos.y - endPos.y;
-    var radians = Math.atan2(y,x);
+    let radians = getDegree(startPos, endPos);
     // startPos.x = startPos.x - movementAmount * Math.cos(radians);
     // startPos.y = startPos.y - movementAmount * Math.sin(radians);
     return {
@@ -51,6 +49,44 @@ function moveTowards(startPos, endPos, movementAmount){
         y : startPos.y - movementAmount * Math.sin(radians)
     }
 
+}
+
+function moveTowardsAngle(startPos, radians, movementAmount){
+    return {
+        x : startPos.x - movementAmount * Math.cos(radians),
+        y : startPos.y - movementAmount * Math.sin(radians)
+    }
+}
+
+
+function turnUntilNoCollision(startPos, cellBodies, shouldTurnRight, adjustedDegree, lookahead){
+
+    let projectedCollisionPoint = moveTowardsAngle(startPos, degreesToRadians(adjustedDegree), lookahead);
+    let stepSize = 3, steps = 0;
+    let maxSteps = 360 / stepSize;
+    let turnFun = shouldTurnRight ? turnRight : turnLeft;
+
+    while (Matter.Query.ray(cellBodies, startPos, projectedCollisionPoint, 3).length > 0 ) {
+        steps ++;
+        adjustedDegree = turnFun(adjustedDegree, stepSize);
+
+        projectedCollisionPoint = moveTowardsAngle(startPos, degreesToRadians(adjustedDegree), lookahead);
+        if (steps > maxSteps)
+            return false;
+    }
+
+    return {
+        degree: adjustedDegree,
+        steps: steps
+    };
+}
+
+
+function getDegree(startPos, endPos){
+    let x = startPos.x - endPos.x;
+    let y = startPos.y - endPos.y;
+    let radians = Math.atan2(y,x);
+    return radians
 }
 
 // 0 180   -180 -0

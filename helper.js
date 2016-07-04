@@ -75,6 +75,7 @@ function turnUntilNoCollision(startPos, cellBodies, shouldTurnRight, adjustedDeg
             return false;
     }
 
+    adjustedDegree = turnFun(adjustedDegree, stepSize);
     return {
         degree: adjustedDegree,
         steps: steps

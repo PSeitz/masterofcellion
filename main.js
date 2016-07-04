@@ -215,15 +215,16 @@ function init() {
                 let startPos = attackCell.body.position, endPos = targetCell.body.position;
 
                 let initialDegree = radiansToDegrees(getDegree(startPos, endPos));
-                let lookahead = 50;
+                let lookahead = 150;
                 let projectedCollisionPoint = moveTowardsAngle(startPos, degreesToRadians(initialDegree), lookahead);
-                let bodies = Query.point(_.difference(getCellBodies(), [targetCell.body]), projectedCollisionPoint)
+                let cellBodies = _.difference(getCellBodies(), [targetCell.body]);
+                let bodies = Matter.Query.ray(cellBodies, startPos, projectedCollisionPoint, 3)
                 let xy = moveTowardsAngle(startPos, degreesToRadians(initialDegree), forceMagnitude);
                 if (bodies.length > 0 ) {
                     // debugger;
                     let initialDegree = radiansToDegrees(getDegree(startPos, endPos));
-                    let res1 = turnUntilNoCollision(startPos, _.difference(getCellBodies(), [targetCell.body]), true, initialDegree, lookahead)
-                    let res2 = turnUntilNoCollision(startPos, _.difference(getCellBodies(), [targetCell.body]), false, initialDegree, lookahead)
+                    let res1 = turnUntilNoCollision(startPos, cellBodies, true, initialDegree, lookahead)
+                    let res2 = turnUntilNoCollision(startPos, cellBodies, false, initialDegree, lookahead)
                     let betterRes = _.minBy([res1, res2], 'steps');
                     if (betterRes) {
                         xy = moveTowardsAngle(startPos, degreesToRadians(betterRes.degree), forceMagnitude);

@@ -113,6 +113,11 @@ function init() {
             }
         }
 
+
+        let getCellsFromOwner = (owner) => {
+            return _.filter(cells, { 'owner': owner });
+        }
+
         let getSelectedCells = () => {
             return _.filter(cells, 'selected');
         }
@@ -255,6 +260,31 @@ function init() {
             World.remove(engine.world, [attackCell.body])
 
         }
+
+
+        function ki_move(owner) {
+            let my_cells = getCellsFromOwner(owner);
+            let otherCells = _.difference(cells, my_cells);
+            my_cells = _.filter(my_cells, function(cell) { //enough points
+                return cell.value/cell.maxValue > 0.4;
+            });
+            for (let my_cell of my_cells) {
+                for (let otherCell of otherCells) {
+                    if (my_cell.value*1.5 > otherCell.value) {
+                         attack([my_cell], otherCell);
+                    }
+                }
+            }
+        }
+
+        setInterval(function(){
+            for (let owner of owners) {
+                if (owner != USER) {
+                    ki_move(owner);
+                }
+            }
+
+        }, 300);
 
         // an example of using collisionStart event on an engine
         Matter.Events.on(engine, 'collisionStart', function(event) {

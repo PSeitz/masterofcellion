@@ -272,6 +272,7 @@ function init() {
                 for (let otherCell of otherCells) {
                     if (my_cell.value*1.5 > otherCell.value) {
                          attack([my_cell], otherCell);
+                         continue;
                     }
                 }
             }
